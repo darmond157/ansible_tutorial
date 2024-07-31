@@ -4,20 +4,46 @@
   become: true
   pre_tasks:
 
-  - name: install updates on CentOS
+  - name: update repo cache on CentOS
     tags: always
     dnf:
-      update_only: yes
       update_cache: yes
+    changed_when: false
     when: ansible_distribution == "CentOS"
 
-  - name: install updates on ubuntu
+  - name: update repo cache on ubuntu
     tags: always
     apt:
-      upgrade: dist
       update_cache: yes
+    changed_when: false
     when: ansible_distribution == "Ubuntu"
 
+- hosts: all
+  become: true
+  tasks:
+
+  - name: add ssh key for simone
+    tags: always
+    authorized_key:
+      user: simone
+      key: #public key generated for this user
+
+- hosts: workstations
+  become: true
+  tasks:
+
+  - name: install unzip
+    package:
+      name: unzip
+
+  - name: install terraform
+    unarchive:
+      src: https://releases.hashicopr.com/terraform/0.12.28/terraform_0.12.28_linux_amd64.zip
+      dest: /usr/local/bin
+      remote_src: yes
+      mode: 0755
+      owner: root
+      group: root
 
 - hosts: web_servers
   become: true
@@ -30,6 +56,31 @@
         - "{{ apache_package }}"
         - "{{ php_package }}"
       state: latest
+
+  - name: start httpd on Centos
+    tags: apache,centos,httpd
+    service:
+      name: httpd
+      state: started
+      enabled: yes
+    when: ansible_distribution == "CentOS"
+
+  - name: change e-mail address for admin
+    tags: apache,centos,httpd
+    lineinfile:
+      path: /etc/httpd/conf/httpd.conf
+      regexp: '^ServerAdmin'
+      line: ServerAdmin somebody@somewhere.net
+    when: ansible_distribution == "CentOS"
+    register: httpd #store httpd state in a variable. can be named PIZZA. we will the refer to it for changes.
+
+  - name: restart httpd on centos
+    tags: apache,centos,httpd
+    services:
+      name: httpd
+      state: restarted
+    when: httpd.changed
+
   - name: copy default html file for site
     tags: apache
     copy:
@@ -52,7 +103,7 @@
     when: ansible_distribution == "CentOS"
 
   - name: install mariadb package on Ubuntu
-    db,mariabdb,ubuntu
+    tags: db,mariabdb,ubuntu
     apt:
       name: mariadb-server
       state: latest
