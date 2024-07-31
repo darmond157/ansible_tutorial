@@ -6,13 +6,12 @@
       - "{{ php_package }}"
     state: latest
 
-- name: start httpd on Centos
-  tags: apache,centos,httpd
+- name: start httpd
+  tags: apache,httpd
   service:
-    name: httpd
+    name: " {{ apache_service }} "
     state: started
     enabled: yes
-  when: ansible_distribution == "CentOS"
 
 - name: change e-mail address for admin
   tags: apache,centos,httpd
@@ -21,14 +20,7 @@
     regexp: '^ServerAdmin'
     line: ServerAdmin somebody@somewhere.net
   when: ansible_distribution == "CentOS"
-  register: httpd #store httpd state in a variable. can be named PIZZA. we will the refer to it for changes.
-
-- name: restart httpd on centos
-  tags: apache,centos,httpd
-  services:
-    name: httpd
-    state: restarted
-  when: httpd.changed
+  notify: restart_apache #store httpd state in a variable. can be named PIZZA. we will the refer to it for changes.
 
 - name: copy default html file for site
   tags: apache
